@@ -1,0 +1,22 @@
+# ==============================================================================
+# requirements.txt - Toy Box Searcher
+# Tối ưu cho Python 3.11.9 (Windows 64-bit, CPU-only)
+# ==============================================================================
+
+# Giao diện người dùng Web App
+streamlit>=1.30.0
+
+# Xử lý và tiền xử lý ảnh
+opencv-python>=4.8.0
+numpy>=1.24.0,<2.0.0  # Chú ý: paddlepaddle 3.x và opencv tương thích tối ưu nhất với numpy 1.x
+pillow>=10.0.0
+
+# Deep Learning OCR (PaddlePaddle 3.x CPU và PaddleOCR 3.x)
+paddlepaddle>=3.0.0
+paddleocr>=3.0.0
+
+# Tìm kiếm thông tin trên Internet miễn phí không cần API key
+ddgs>=9.0.0
+
+# So khớp mờ chuỗi (Fuzzy matching) nhận diện thương hiệu
+rapidfuzz>=3.0.0
