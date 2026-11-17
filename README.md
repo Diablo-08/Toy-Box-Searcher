@@ -1,4 +1,4 @@
-# 🧸 Toy Box Searcher
+# 🧸 Toy Box Searcher - Nhận diện hộp đồ chơi & Tra cứu thông tin
 👉 **[Truy cập ứng dụng trực tuyến tại đây](https://toy-box-searcher.streamlit.app/)**
 
 Hệ thống thông minh nhận diện chữ trên bao bì đồ chơi (OCR), trích xuất thương hiệu & mã SKU, và tra cứu sản phẩm theo khu vực địa lý — chạy hoàn toàn **offline** trên CPU, không cần GPU, không cần API key.
