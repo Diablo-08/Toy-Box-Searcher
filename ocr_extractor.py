@@ -104,15 +104,15 @@ def get_ocr(model_type: str = "mobile") -> PaddleOCR:
     Khởi tạo mô hình PaddleOCR đúng 1 lần và lưu vào cache của Streamlit (@st.cache_resource).
     Bắt buộc sử dụng API PaddleOCR 3.x và tối ưu hóa suy luận CPU:
     - model_type="mobile" (Mặc định): Sử dụng PP-OCRv5_mobile_det + PP-OCRv5_mobile_rec,
-      tốc độ suy luận CPU đạt ~0.6s (nhanh gấp 7 lần so với medium ~4.5s) mà vẫn đạt độ chính xác >95%.
-    - model_type="medium": Sử dụng mô hình PP-OCRv6_medium mặc định của PaddleOCR 3.x.
+      tốc độ suy luận CPU đạt ~0.6s (nhanh gấp 7 lần so với Standard ~4.5s) mà vẫn đạt độ chính xác >95%.
+    - model_type="medium": Sử dụng mô hình PP-OCRv6_medium mặc định của PaddleOCR 3.x (Standard).
     - use_textline_orientation=True: Tự động xoay dòng chữ bị nghiêng/lộn ngược trên bao bì.
     - use_doc_orientation_classify=False: Tắt phân loại hướng toàn bộ trang tài liệu.
     - use_doc_unwarping=False: Tắt nắn phẳng trang sách tài liệu (tiết kiệm tài nguyên CPU).
     - Tự động làm nóng mô hình (Warmup) ngay khi khởi tạo để loại bỏ hiện tượng giật lag 30-40s ở lần chạy đầu tiên.
 
     Args:
-        model_type (str): "mobile" (siêu tốc, tối ưu CPU) hoặc "medium" (tiêu chuẩn).
+        model_type (str): "mobile" / Flash (siêu tốc, tối ưu CPU) hoặc "medium" / Standard (tiêu chuẩn).
 
     Returns:
         PaddleOCR: Đối tượng pipeline OCR sẵn sàng cho suy luận.
@@ -414,8 +414,8 @@ def extract_text_and_keywords(
     gộp kết quả, loại bỏ trùng lặp, lọc nhiễu và ghép từ khóa tìm kiếm tối ưu.
 
     QUY TẮC ĐỘ TIN CẬY TRÍCH XUẤT TỪ KHÓA:
-    - Mô hình Siêu tốc Mobile: Lấy trên 85% (>= 0.85) để bắt trọn vẹn văn bản và mã sản phẩm.
-    - Mô hình Tiêu chuẩn Medium: Lấy trên 95% (>= 0.95) để đạt độ chính xác khắt khe.
+    - Mô hình Flash (Mobile): Lấy trên 85% (>= 0.85) để bắt trọn vẹn văn bản và mã sản phẩm.
+    - Mô hình Standard (Medium): Lấy trên 95% (>= 0.95) để đạt độ chính xác khắt khe.
 
     Chiến lược chấm điểm ưu tiên:
     1. Thương hiệu (Brand): Điểm 100 (khớp mờ RapidFuzz >= 85).
@@ -426,9 +426,9 @@ def extract_text_and_keywords(
     Args:
         image_original (np.ndarray): Ảnh gốc đã chuẩn hóa kích thước (BGR).
         image_enhanced (np.ndarray): Ảnh đã tăng cường tương phản CLAHE & làm nét (BGR).
-        min_keyword_conf (Optional[float]): Ngưỡng độ tin cậy tối thiểu (mặc định 0.85 cho Mobile, 0.95 cho Medium).
+        min_keyword_conf (Optional[float]): Ngưỡng độ tin cậy tối thiểu (mặc định 0.85 cho Flash, 0.95 cho Standard).
         progress_callback (Optional[Callable[[int, str], None]]): Hàm cập nhật thanh tiến trình theo phần trăm.
-        model_type (str): "mobile" (~0.6s siêu tốc) hoặc "medium" (tiêu chuẩn).
+        model_type (str): "mobile" / Flash (~0.6s siêu tốc) hoặc "medium" / Standard (tiêu chuẩn).
 
     Returns:
         Tuple[List[Tuple[str, float]], str]:
@@ -499,7 +499,7 @@ def extract_text_and_keywords(
 
     for text_clean, conf in raw_texts:
         # LỌC ĐỘ TIN CẬY: Chỉ lấy từ khóa có độ tin cậy >= min_keyword_conf
-        # (Mô hình Siêu tốc Mobile: >= 85%, Mô hình Medium: >= 95%)
+        # (Mô hình Flash / Mobile: >= 85%, Mô hình Standard / Medium: >= 95%)
         if conf < min_keyword_conf:
             continue
 

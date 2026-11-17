@@ -170,8 +170,8 @@ def on_ocr_model_change() -> None:
 
 
 OCR_MODEL_LABELS = {
-    "mobile": "⚡ Siêu tốc Mobile (~0.7s - Khuyên dùng)",
-    "medium": "🎯 Tiêu chuẩn Medium (Chính xác cao)",
+    "mobile": "⚡ Flash (~0.7s - Khuyên dùng)",
+    "medium": "🎯 Standard (Chính xác cao)",
 }
 
 # ==============================================================================
@@ -185,14 +185,14 @@ with st.sidebar:
         format_func=lambda m: OCR_MODEL_LABELS.get(m, m),
         key="ocr_model_type",
         on_change=on_ocr_model_change,
-        help="Mobile dùng PP-OCRv5 Mobile nhẹ và nhanh gấp 7 lần trên CPU. Medium dùng mô hình tiêu chuẩn.",
+        help="Flash dùng PP-OCRv5 Mobile nhẹ và nhanh gấp 7 lần trên CPU. Standard dùng mô hình tiêu chuẩn.",
     )
 
     st.markdown("---")
     st.markdown(
         """
         **💡 Tối ưu hóa hiệu năng CPU:**
-        - **PP-OCRv5 Mobile:** Tối ưu hóa suy luận tích chập nhẹ, thời gian quét chỉ ~0.6s - 1.2s.
+        - **Flash:** Tối ưu hóa suy luận tích chập nhẹ, thời gian quét chỉ ~0.6s - 1.2s.
         - **Đa luồng tìm kiếm:** Truy vấn song song khu vực và toàn cầu qua ThreadPoolExecutor.
         - **Lọc thông minh:** Tự động loại bỏ 100% Wikipedia, chỉ giữ các trang sản phẩm & mua sắm.
         """
@@ -266,7 +266,7 @@ if uploaded_file is not None:
             def update_ocr_progress(pct: int, msg: str) -> None:
                 progress_placeholder.progress(pct, text=msg)
 
-            # Xác định ngưỡng độ tin cậy: Siêu tốc Mobile lấy trên 85% (0.85), Medium lấy trên 95% (0.95)
+            # Xác định ngưỡng độ tin cậy: Flash lấy trên 85% (0.85), Standard lấy trên 95% (0.95)
             active_conf_thresh = (
                 0.85 if st.session_state.ocr_model_type == "mobile" else 0.95
             )
@@ -379,7 +379,7 @@ if st.session_state.image_original_bgr is not None:
             )
         else:
             time_str = f"{st.session_state.ocr_time_seconds:.2f}s"
-            mode_tag = "Mobile ⚡" if st.session_state.ocr_model_type == "mobile" else "Medium 🎯"
+            mode_tag = "Flash ⚡" if st.session_state.ocr_model_type == "mobile" else "Standard 🎯"
             st.markdown(
                 f'<div class="speed-badge">⚡ Thời gian quét: {time_str} ({mode_tag}) | Trích xuất từ khóa đạt độ tin cậy > {conf_label}</div>',
                 unsafe_allow_html=True,
