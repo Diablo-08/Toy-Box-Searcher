@@ -1,5 +1,5 @@
 🧸 Toy Box Searcher - Nhận diện hộp đồ chơi & Tra cứu thông tin
-    https://toy-box-searcher.streamlit.app/
+👉 **[Truy cập tại đây](https://toy-box-searcher.streamlit.app/)**
 
 Hệ thống thị giác máy tính và ứng dụng web xây dựng bằng Python 3.11.9 (CPU-only) giúp:
 1. Chuẩn hóa và tiền xử lý hình ảnh hộp đồ chơi (khử nhiễu Bilateral Filter, cân bằng độ tương phản thích nghi CLAHE trên kênh L của LAB, làm nét Unsharp Masking).
