@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🧸 Toy Box Searcher - Nhận diện hộp đồ chơi & Tra cứu thông tin
 
 Hệ thống thị giác máy tính và ứng dụng web xây dựng bằng Python 3.11.9 (CPU-only) giúp:
@@ -47,3 +48,6 @@ python -m streamlit run app.py
 | **Test Case 1** | **Hộp LEGO City Express Passenger Train** | Chữ `LEGO` góc trên, số hiệu `60337`, dòng chữ `CITY`, chữ cảnh báo `WARNING: CHOKING HAZARD`, `7+` | `LEGO 60337 CITY PASSENGER TRAIN` |
 | **Test Case 2** | **Vỉ xe Hot Wheels Premium / Mainline** | Logo `Hot Wheels` uốn lượn, mã sản phẩm `HW123` hoặc `B-1234`, dòng chữ `FAST & FURIOUS`, tỉ lệ `1:64` | `Hot Wheels 1:64 HW123 FAST & FURIOUS` |
 | **Test Case 3** | **Hộp Gunpla Bandai Gundam** | Logo `BANDAI`, chữ `GUNDAM`, cấp độ và tỉ lệ `HG 1/144`, mã người máy `RX-78-2`, chữ tiếng Nhật | `Bandai Gundam HG1/144 RX-78-2` |
+=======
+# Toy-Box-Searcher
+>>>>>>> 57ac54a1fd4a26f1a1d3aec589c70e52687f09bd
