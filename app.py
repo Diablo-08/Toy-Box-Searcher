@@ -30,6 +30,26 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+import streamlit as st
+
+st.markdown("""
+    <style>
+        /* Ẩn thanh header trên cùng (Fork, GitHub, dấu 3 chấm) */
+        header[data-testid="stHeader"] {
+            display: none !important;
+        }
+        
+        /* Ẩn nút vương miện đỏ và avatar ở góc dưới bên phải */
+        div[class*="viewerBadge"] {
+            display: none !important;
+        }
+        
+        /* Thu gọn khoảng trống thừa phía trên sau khi ẩn header */
+        .block-container {
+            padding-top: 1.5rem !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # Custom CSS để giao diện trực quan, hiện đại và chuẩn công nghiệp
 st.markdown(
