@@ -34,19 +34,24 @@ import streamlit as st
 
 st.markdown("""
     <style>
-        /* Ẩn thanh header trên cùng (Fork, GitHub, dấu 3 chấm) */
+        /* Ẩn toàn bộ header mặc định của Streamlit (chứa nút Fork, GitHub, menu 3 chấm) */
         header[data-testid="stHeader"] {
             display: none !important;
+            visibility: hidden !important;
         }
         
-        /* Ẩn nút vương miện đỏ và avatar ở góc dưới bên phải */
-        div[class*="viewerBadge"] {
+        /* Ẩn triệt để cụm nút badge / avatar / vương miện ở góc dưới bên phải */
+        div[class*="viewerBadge"], 
+        div[data-testid="stStatusWidget"],
+        footer {
             display: none !important;
+            visibility: hidden !important;
         }
         
-        /* Thu gọn khoảng trống thừa phía trên sau khi ẩn header */
+        /* Cân đối lại khoảng trắng phía trên cho giao diện khít đẹp */
         .block-container {
-            padding-top: 1.5rem !important;
+            padding-top: 1rem !important;
+            padding-bottom: 0rem !important;
         }
     </style>
 """, unsafe_allow_html=True)
