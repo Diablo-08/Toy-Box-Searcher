@@ -192,7 +192,7 @@ with st.sidebar:
     st.markdown(
         """
         **💡 Tối ưu hóa hiệu năng CPU:**
-        - **Flash:** Tối ưu hóa suy luận tích chập nhẹ, thời gian quét chỉ ~0.6s - 1.2s.
+        - **Flash:** Tối ưu hóa tốc độ, thời gian quét chỉ ~0.6s - 1.2s.
         - **Đa luồng tìm kiếm:** Truy vấn song song khu vực và toàn cầu qua ThreadPoolExecutor.
         - **Lọc thông minh:** Tự động loại bỏ 100% Wikipedia, chỉ giữ các trang sản phẩm & mua sắm.
         """
