@@ -6,8 +6,8 @@
 # Giao diện người dùng Web App
 streamlit>=1.30.0
 
-# Xử lý và tiền xử lý ảnh
-opencv-python>=4.8.0
+# Xử lý và tiền xử lý ảnh (sử dụng bản headless không phụ thuộc GUI/X11 trên Linux/Streamlit Cloud)
+opencv-python-headless>=4.8.0
 numpy>=1.24.0,<2.0.0  # Chú ý: paddlepaddle 3.x và opencv tương thích tối ưu nhất với numpy 1.x
 pillow>=10.0.0
 
@@ -20,5 +20,4 @@ ddgs>=9.0.0
 
 # So khớp mờ chuỗi (Fuzzy matching) nhận diện thương hiệu
 rapidfuzz>=3.0.0
-opencv-python-headless
 
