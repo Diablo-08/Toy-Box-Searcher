@@ -34,8 +34,15 @@ import streamlit as st
 
 st.markdown("""
     <style>
-        /* Ẩn toàn bộ header mặc định của Streamlit (chứa nút Fork, GitHub, menu 3 chấm) */
+        /* Giữ nút mở Sidebar hoạt động nhưng ẩn triệt để các nút Fork, GitHub, Deploy và menu 3 chấm */
         header[data-testid="stHeader"] {
+            background: transparent !important;
+        }
+        header[data-testid="stHeader"] div[data-testid="stToolbar"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        header[data-testid="stHeader"] div[data-testid="stDecoration"] {
             display: none !important;
             visibility: hidden !important;
         }
@@ -204,14 +211,8 @@ OCR_MODEL_LABELS = {
 # ==============================================================================
 with st.sidebar:
     st.header("⚙️ Cấu hình hệ thống")
-    st.radio(
-        "Mô hình OCR nhận diện chữ:",
-        options=["mobile", "medium"],
-        format_func=lambda m: OCR_MODEL_LABELS.get(m, m),
-        key="ocr_model_type",
-        on_change=on_ocr_model_change,
-        help="Flash dùng PP-OCRv5 Mobile nhẹ và nhanh gấp 7 lần trên CPU. Standard dùng mô hình tiêu chuẩn.",
-    )
+    current_model_label = OCR_MODEL_LABELS.get(st.session_state.ocr_model_type, st.session_state.ocr_model_type)
+    st.info(f"Mô hình đang hoạt động:\n\n**{current_model_label}**")
 
     st.markdown("---")
     st.markdown(
@@ -234,6 +235,23 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
+
+# ==============================================================================
+# KHUNG TÙY CHỌN MÔ HÌNH AI NHẬN DIỆN (HIỂN THỊ RÕ RÀNG TRỰC TIẾP TRÊN TRANG CHÍNH)
+# ==============================================================================
+with st.container():
+    st.markdown("##### ⚙️ Tùy chọn mô hình nhận diện (OCR Model):")
+    st.radio(
+        "Mô hình OCR nhận diện chữ:",
+        options=["mobile", "medium"],
+        format_func=lambda m: OCR_MODEL_LABELS.get(m, m),
+        key="ocr_model_type",
+        on_change=on_ocr_model_change,
+        horizontal=True,
+        label_visibility="collapsed",
+        help="⚡ Flash: Nhẹ và nhanh hơn ~7 lần, thời gian chỉ ~0.7s. 🎯 Standard: Độ chính xác và chi tiết cao nhất.",
+    )
+    st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
 # ==============================================================================
 # KHUNG TẢI ẢNH (FILE UPLOADER) & THANH TIẾN TRÌNH BIẾN MẤT TỰ ĐỘNG
