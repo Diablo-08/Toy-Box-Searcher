@@ -9,15 +9,17 @@ Môi trường: Python 3.11.9, PaddleOCR 3.x, RapidFuzz 3.x
 
 import os
 import re
-from typing import List, Tuple, Dict, Set, Optional, Callable
+from typing import List, Tuple, Dict, Set, Optional, Callable, Any
 
 # Tắt kiểm tra kết nối máy chủ mô hình từ xa của PaddleX để tăng tốc độ khởi động tức thì
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
+import cv2
 import numpy as np
 import streamlit as st
 from rapidfuzz import fuzz
 from rapidfuzz.distance import Levenshtein
+from gemini_fallback import extract_keywords_gemini
 
 # ==============================================================================
 # XỬ LÝ TƯƠNG THÍCH PADDLEPADDLE 3.x TRÊN WINDOWS CPU
@@ -48,53 +50,269 @@ from paddleocr import PaddleOCR
 # TỪ ĐIỂN THƯƠNG HIỆU ĐỒ CHƠI CHUẨN XÁC (CANONICAL BRANDS)
 # ==============================================================================
 KNOWN_BRANDS: List[str] = [
+    # Xây dựng & Lắp ráp (Building Blocks)
     "LEGO",
+    "Mega Construx",
+    "Mega Bloks",
+    "Sluban",
+    "Cobi",
+    "CaDA",
+    "Mould King",
+    "Sembo",
+    "K'NEX",
+    "Banbao",
+    # Xe mô hình & Đua xe (Die-cast & RC Models)
     "Hot Wheels",
-    "Barbie",
+    "Matchbox",
+    "Tomica",
+    "Majorette",
+    "Maisto",
+    "Bburago",
+    "Mini GT",
+    "Greenlight",
+    "Johnny Lightning",
+    "Jada Toys",
+    "AutoArt",
+    "Kyosho",
+    "Tamiya",
+    "Siku",
+    "Hasegawa",
+    "Aoshima",
+    "Fujimi",
+    "Revell",
+    "Carrera",
+    # Mô hình Anime, Manga & Game (Anime, Mecha & Collectibles)
     "Bandai",
+    "Bandai Namco",
+    "Bandai Spirits",
     "Gundam",
+    "Gunpla",
+    "Tamashii Nations",
+    "Takara Tomy",
+    "Pokemon",
+    "Beyblade",
+    "Bakugan",
+    "Yu-Gi-Oh!",
+    "Digimon",
+    "Dragon Ball",
+    "One Piece",
+    "Naruto",
+    "Demon Slayer",
+    "Sanrio",
+    "Hello Kitty",
+    "Doraemon",
+    "Studio Ghibli",
+    # Nhân vật, Búp bê & Art Toy (Figures, Dolls & Art Toys)
+    "Barbie",
+    "Monster High",
+    "Bratz",
+    "LOL Surprise",
+    "Rainbow High",
+    "Sylvanian Families",
+    "Baby Alive",
+    "Polly Pocket",
+    "My Little Pony",
+    "Funko",
+    "Pop Mart",
+    "Good Smile Company",
+    "Nendoroid",
+    "Figma",
+    "Kotobukiya",
+    "Banpresto",
+    "Medicom Toy",
+    "McFarlane Toys",
+    "NECA",
+    "Hot Toys",
+    "Schleich",
+    "Papo",
+    "Mego",
+    # Hành động, Điện ảnh & Siêu anh hùng (Action Figures & Superheroes)
     "Transformers",
     "Hasbro",
     "Mattel",
-    "Fisher-Price",
-    "Nerf",
-    "Playmobil",
-    "Funko",
-    "Tomica",
-    "Disney",
     "Marvel",
-    "Pokemon",
+    "DC Comics",
+    "Star Wars",
+    "Jurassic World",
+    "Power Rangers",
+    "TMNT",
+    "Disney",
+    "Ben 10",
+    # Đồ chơi trẻ em, Mầm non & Giáo dục (Infant, Preschool & Creative)
+    "Fisher-Price",
+    "VTech",
+    "LeapFrog",
+    "Melissa & Doug",
+    "Playmobil",
     "Play-Doh",
-    "Tamiya",
-    "Kyosho",
+    "Little Tikes",
+    "Crayola",
+    "Kinetic Sand",
+    "Nerf",
+    "Spin Master",
+    "Moose Toys",
+    "WowWee",
+    "Playmates",
+    "Silverlit",
+    # Board Game & Thẻ bài (Games & Puzzles)
+    "Monopoly",
+    "Uno",
+    "Rubik's",
+    "Ravensburger",
+    "Asmodee",
+]
+
+# ==============================================================================
+# TỪ ĐIỂN DÒNG SẢN PHẨM / SERIES NỔI TIẾNG (PRODUCT LINES / SUBLINES)
+# ==============================================================================
+KNOWN_PRODUCT_LINES: List[str] = [
+    # LEGO Lines
+    "Technic",
+    "City",
+    "Ninjago",
+    "Speed Champions",
+    "Creator",
+    "Creator Expert",
+    "Icons",
+    "Star Wars",
+    "Duplo",
+    "Friends",
+    "Architecture",
+    "Harry Potter",
+    "Marvel Super Heroes",
+    "Batman",
+    "Classic",
+    "Botanical Collection",
+    "Ideas",
+    "Mindstorms",
+    "Bionicle",
+    "Monkie Kid",
+    "Dreamzzz",
+    # Hot Wheels & Diecast Lines
+    "Monster Trucks",
+    "Track Stars",
+    "Premium",
+    "Car Culture",
+    "Boulevard",
+    "Fast & Furious",
+    "Red Line Club",
+    "Mainline",
+    "Treasure Hunt",
+    "Team Transport",
+    "Pop Culture",
+    # Gundam & Mecha Lines
+    "High Grade",
+    "Master Grade",
+    "Real Grade",
+    "Perfect Grade",
+    "Entry Grade",
+    "Super Deformed",
+    "Gundam Universe",
+    "Robot Spirits",
+    "Metal Build",
+    "Witch from Mercury",
+    "Iron-Blooded Orphans",
+    # Transformers Lines
+    "Studio Series",
+    "Generations",
+    "Legacy",
+    "War for Cybertron",
+    "Masterpiece",
+    "Kingdom",
+    "Earthrise",
+    "Siege",
+    "Rise of the Beasts",
+    # Action Figures & Collectibles Lines
+    "Marvel Legends",
+    "Black Series",
+    "Vintage Collection",
+    "Pop! Vinyl",
+    "S.H.Figuarts",
+    "Mythic Legions",
+    "GI Joe Classified",
 ]
 
 # ==============================================================================
 # DANH SÁCH TỪ DỪNG / CẢNH BÁO BẢO HỘ TRÊN VỎ HỘP ĐỒ CHƠI (STOPWORDS)
 # ==============================================================================
 STOPWORDS: Set[str] = {
+    # Tiếng Anh - Cảnh báo an toàn & độ tuổi
     "warning",
     "choking hazard",
     "small parts",
+    "not for children",
+    "under 3 years",
+    "keep out of reach",
+    "adult supervision",
+    "safety",
+    "caution",
+    "attention",
+    "achtung",
+    "aviso",
     "ages",
     "age",
     "years",
     "year",
-    "made in china",
+    "months",
+    # Tiếng Anh - Quy cách đóng gói & sản xuất
     "pieces",
     "pcs",
     "new",
+    "item",
+    "no",
+    "toy",
+    "toys",
+    "model kit",
+    "made in china",
+    "made in vietnam",
+    "made in thailand",
+    "made in japan",
+    "made in indonesia",
+    "all rights reserved",
+    "distributed by",
+    "customer service",
+    "each sold separately",
+    "colors may vary",
+    "contents may vary",
+    "batteries included",
+    "batteries not included",
+    "battery operated",
+    "non toxic",
+    "instructions included",
+    "conforms to",
+    "astm",
+    "en71",
+    "ce",
+    "recycle",
+    "barcode",
     "www",
     "com",
     "http",
     "https",
-    "safety",
-    "caution",
-    "not for children",
-    "under 3 years",
-    "item",
-    "no",
-    "toy",
+    # Tiếng Việt - Cảnh báo an toàn
+    "cảnh báo",
+    "nguy cơ nghẹt thở",
+    "chi tiết nhỏ",
+    "không thích hợp cho trẻ",
+    "trẻ dưới 3 tuổi",
+    "độ tuổi",
+    "tuổi",
+    "hướng dẫn sử dụng",
+    "giám sát của người lớn",
+    # Tiếng Việt - Thông tin sản phẩm & xuất xứ
+    "xuất xứ",
+    "nơi sản xuất",
+    "sản xuất tại",
+    "nhập khẩu bởi",
+    "nhà phân phối",
+    "thành phần",
+    "thông số kỹ thuật",
+    "tiêu chuẩn",
+    "năm sản xuất",
+    "đồ chơi trẻ em",
+    "hộp đồ chơi",
+    "mảnh ghép",
+    "chi tiết",
 }
 
 
@@ -320,6 +538,44 @@ def match_brand(text: str, threshold: float = 85.0) -> Optional[str]:
     return None
 
 
+def match_product_line(text: str, threshold: float = 85.0) -> Optional[str]:
+    """
+    So khớp mờ để nhận diện dòng sản phẩm / series đồ chơi nổi tiếng
+    (ví dụ: 'Technic', 'Ninjago', 'Speed Champions', 'Monster Trucks', 'Studio Series').
+
+    Args:
+        text (str): Chuỗi cần kiểm tra.
+        threshold (float): Ngưỡng tương đồng tối thiểu (mặc định 85/100).
+
+    Returns:
+        Optional[str]: Tên dòng sản phẩm chuẩn nếu khớp, ngược lại None.
+    """
+    text_clean = text.strip()
+    text_lower = text_clean.lower()
+
+    if len(text_lower) < 3:
+        return None
+
+    for line in KNOWN_PRODUCT_LINES:
+        line_lower = line.lower()
+        if text_lower == line_lower:
+            return line
+
+        dist = Levenshtein.distance(text_lower, line_lower)
+        if (len(line_lower) <= 5 and dist <= 1) or (len(line_lower) > 5 and dist <= 2):
+            return line
+
+        if fuzz.ratio(text_lower, line_lower) >= threshold:
+            return line
+
+        # So khớp bộ phận nếu chứa ranh giới từ
+        if len(text_lower) >= len(line_lower):
+            if re.search(rf"\b{re.escape(line_lower)}\b", text_lower):
+                return line
+
+    return None
+
+
 def extract_sku_or_model(text: str) -> List[str]:
     """
     Trích xuất mã sản phẩm, SKU, số hiệu bộ đồ chơi hoặc tỷ lệ mô hình bằng biểu thức chính quy (Regex).
@@ -408,10 +664,12 @@ def extract_text_and_keywords(
     min_keyword_conf: Optional[float] = None,
     progress_callback: Optional[Callable[[int, str], None]] = None,
     model_type: str = "mobile",
-) -> Tuple[List[Tuple[str, float]], str]:
+    enable_gemini_fallback: bool = True,
+) -> Tuple[List[Tuple[str, float]], str, bool]:
     """
     Chạy OCR trên CẢ ảnh gốc chuẩn hóa và ảnh tăng cường độ tương phản,
     gộp kết quả, loại bỏ trùng lặp, lọc nhiễu và ghép từ khóa tìm kiếm tối ưu.
+    Tích hợp Hybrid Gemini Flash fallback khi OCR không đủ độ tin cậy.
 
     QUY TẮC ĐỘ TIN CẬY TRÍCH XUẤT TỪ KHÓA:
     - Mô hình Flash (Mobile): Lấy trên 85% (>= 0.85) để bắt trọn vẹn văn bản và mã sản phẩm.
@@ -429,11 +687,13 @@ def extract_text_and_keywords(
         min_keyword_conf (Optional[float]): Ngưỡng độ tin cậy tối thiểu (mặc định 0.85 cho Flash, 0.95 cho Standard).
         progress_callback (Optional[Callable[[int, str], None]]): Hàm cập nhật thanh tiến trình theo phần trăm.
         model_type (str): "mobile" / Flash (~0.6s siêu tốc) hoặc "medium" / Standard (tiêu chuẩn).
+        enable_gemini_fallback (bool): Cho phép gọi Gemini Flash khi OCR yếu (mặc định True).
 
     Returns:
-        Tuple[List[Tuple[str, float]], str]:
+        Tuple[List[Tuple[str, float]], str, bool]:
             - raw_texts: Danh sách tất cả các dòng chữ OCR đọc được kèm confidence.
             - final_keyword: Chuỗi từ khóa tối ưu để tìm kiếm trên Internet.
+            - used_gemini_fallback: True nếu Gemini Flash đã tham gia hỗ trợ phân tích.
     """
     if min_keyword_conf is None:
         min_keyword_conf = 0.85 if model_type == "mobile" else 0.95
@@ -444,14 +704,14 @@ def extract_text_and_keywords(
     # 1. Chạy OCR tăng tốc: Ưu tiên ảnh tăng cường tương phản CLAHE trước
     ocr_res_enh = run_ocr(image_enhanced, min_conf=0.55, model_type=model_type)
 
-    # Đánh giá nhanh: Nếu ảnh tăng cường đã trích xuất được kết quả tốt (>= 2 dòng chữ hoặc có thương hiệu/SKU),
+    # Đánh giá nhanh: Nếu ảnh tăng cường đã trích xuất được kết quả tốt (>= 2 dòng chữ hoặc có thương hiệu/SKU/Dòng sản phẩm),
     # ta bỏ qua lượt chạy OCR thứ hai để TIẾT KIỆM 50% THỜI GIAN suy luận trên CPU.
     has_strong_clue = False
     if len(ocr_res_enh) >= 2:
         has_strong_clue = True
     elif len(ocr_res_enh) == 1:
         text_first = ocr_res_enh[0][0]
-        if match_brand(text_first) or extract_sku_or_model(text_first):
+        if match_brand(text_first) or extract_sku_or_model(text_first) or match_product_line(text_first):
             has_strong_clue = True
 
     # Chỉ chạy fallback trên ảnh gốc nếu ảnh tăng cường chưa tìm thấy chữ đủ rõ
@@ -485,46 +745,6 @@ def extract_text_and_keywords(
         merged_dict.values(), key=lambda x: x[1], reverse=True
     )
 
-    if not raw_texts:
-        return [], ""
-
-    # 3. Phân loại và chấm điểm các thành phần từ khóa
-    detected_brands: List[Tuple[str, float]] = []
-    detected_skus: List[Tuple[str, float]] = []
-    detected_caps: List[Tuple[str, float]] = []
-    detected_others: List[Tuple[str, float]] = []
-
-    seen_brands: Set[str] = set()
-    seen_skus: Set[str] = set()
-
-    for text_clean, conf in raw_texts:
-        # LỌC ĐỘ TIN CẬY: Chỉ lấy từ khóa có độ tin cậy >= min_keyword_conf
-        # (Mô hình Flash / Mobile: >= 85%, Mô hình Standard / Medium: >= 95%)
-        if conf < min_keyword_conf:
-            continue
-
-        # A. Nhận diện thương hiệu bằng so khớp mờ
-        brand_match = match_brand(text_clean)
-        if brand_match and brand_match not in seen_brands:
-            detected_brands.append((brand_match, 100.0 + conf))
-            seen_brands.add(brand_match)
-
-        # B. Trích xuất SKU, mã sản phẩm hoặc tỷ lệ
-        skus = extract_sku_or_model(text_clean)
-        for s in skus:
-            if s not in seen_skus:
-                detected_skus.append((s, 85.0 + conf))
-                seen_skus.add(s)
-
-        # C. Nhận diện cụm từ in hoa nổi bật (vd: 'PASSENGER TRAIN', 'CITY')
-        words = text_clean.split()
-        if 1 <= len(words) <= 4 and text_clean.isupper() and len(text_clean) >= 3:
-            if text_clean.upper() not in seen_skus:
-                detected_caps.append((text_clean, 65.0 + conf))
-        else:
-            detected_others.append((text_clean, 40.0 * conf))
-
-    # 4. Ghép final_keyword theo thứ tự ưu tiên: Thương hiệu -> SKU -> Cụm in hoa -> Từ khác
     keyword_tokens: List[str] = []
     seen_tokens_lower: Set[str] = set()
 
@@ -549,37 +769,217 @@ def extract_text_and_keywords(
         seen_tokens_lower.add(w_lower)
         keyword_tokens.append(w)
 
-    # Ưu tiên 1: Thương hiệu đứng đầu
+    def assemble_final_keyword() -> str:
+        final_tokens: List[str] = []
+        current_length = 0
+        for token in keyword_tokens:
+            if len(final_tokens) >= 8:
+                break
+            if current_length + len(token) + 1 > 80:
+                break
+            final_tokens.append(token)
+            current_length += len(token) + 1
+        return " ".join(final_tokens).strip()
+
+    # Trường hợp PaddleOCR không tìm thấy chữ nào trên ảnh:
+    if not raw_texts:
+        if enable_gemini_fallback:
+            if progress_callback:
+                progress_callback(90, "🤖 PaddleOCR không phát hiện chữ, đang chuyển sang Gemini Flash...")
+            try:
+                gemini_keywords = extract_keywords_gemini(image_original)
+                if gemini_keywords:
+                    for g_kw in gemini_keywords:
+                        raw_texts.append((f"[Gemini] {g_kw}", 0.95))
+                        add_token(g_kw)
+                    final_keyword = assemble_final_keyword()
+                    return raw_texts, final_keyword, True
+            except Exception as e:
+                st.warning(f"Gemini fallback thất bại: {e}")
+        return [], "", False
+
+    # 3. Phân loại và chấm điểm các thành phần từ khóa
+    detected_brands: List[Tuple[str, float]] = []
+    detected_lines: List[Tuple[str, float]] = []
+    detected_skus: List[Tuple[str, float]] = []
+    detected_caps: List[Tuple[str, float]] = []
+    detected_others: List[Tuple[str, float]] = []
+
+    seen_brands: Set[str] = set()
+    seen_lines: Set[str] = set()
+    seen_skus: Set[str] = set()
+
+    for text_clean, conf in raw_texts:
+        # LỌC ĐỘ TIN CẬY: Chỉ lấy từ khóa có độ tin cậy >= min_keyword_conf
+        # (Mô hình Flash / Mobile: >= 85%, Mô hình Standard / Medium: >= 95%)
+        if conf < min_keyword_conf:
+            continue
+
+        # A. Nhận diện thương hiệu bằng so khớp mờ
+        brand_match = match_brand(text_clean)
+        if brand_match and brand_match not in seen_brands:
+            detected_brands.append((brand_match, 100.0 + conf))
+            seen_brands.add(brand_match)
+
+        # B. Trích xuất SKU, mã sản phẩm hoặc tỷ lệ
+        skus = extract_sku_or_model(text_clean)
+        for s in skus:
+            if s not in seen_skus:
+                detected_skus.append((s, 85.0 + conf))
+                seen_skus.add(s)
+
+        # C. Nhận diện dòng sản phẩm / series nổi tiếng (Technic, Ninjago, Monster Trucks...)
+        line_match = match_product_line(text_clean)
+        if line_match and line_match not in seen_lines and line_match not in seen_brands:
+            detected_lines.append((line_match, 75.0 + conf))
+            seen_lines.add(line_match)
+
+        # D. Nhận diện cụm từ in hoa nổi bật (vd: 'PASSENGER TRAIN', 'CITY')
+        words = text_clean.split()
+        if 1 <= len(words) <= 4 and text_clean.isupper() and len(text_clean) >= 3:
+            if text_clean.upper() not in seen_skus and text_clean.title() not in seen_lines:
+                detected_caps.append((text_clean, 65.0 + conf))
+        else:
+            detected_others.append((text_clean, 40.0 * conf))
+
+    # 4. Ghép final_keyword theo thứ tự ưu tiên: Thương hiệu -> SKU -> Dòng sản phẩm -> Cụm in hoa -> Từ khác
     for b_name, _ in detected_brands:
         for w in b_name.split():
             add_token(w)
 
-    # Ưu tiên 2: Mã SKU / Set ID / Tỷ lệ đứng ngay sau thương hiệu
     for s_name, _ in detected_skus:
         add_token(s_name)
 
-    # Ưu tiên 3: Tên dòng sản phẩm in hoa
+    for l_name, _ in detected_lines:
+        for w in l_name.split():
+            add_token(w)
+
     for c_text, _ in detected_caps:
         for w in c_text.split():
             add_token(w)
 
-    # Ưu tiên 4: Các từ ngữ mô tả khác
     for o_text, _ in detected_others:
         for w in o_text.split():
             add_token(w)
 
-    # Giới hạn tối đa 8 từ và không quá 80 ký tự để tìm kiếm hiệu quả
-    final_tokens: List[str] = []
-    current_length = 0
+    final_keyword = assemble_final_keyword()
 
-    for token in keyword_tokens:
-        if len(final_tokens) >= 8:
-            break
-        if current_length + len(token) + 1 > 80:
-            break
-        final_tokens.append(token)
-        current_length += len(token) + 1
+    # --- HYBRID LOGIC FALLBACK (GEMINI FLASH) ---
+    # Điều kiện kích hoạt:
+    # - Ít hơn 2 từ khóa hợp lệ (< MIN_KEYWORDS)
+    # - HOẶC độ tin cậy của các chữ đọc được < 0.75 (< MIN_CONFIDENCE)
+    # - HOẶC không trích xuất được final_keyword
+    MIN_KEYWORDS = 2
+    MIN_CONFIDENCE = 0.75
+    used_gemini_fallback = False
 
-    final_keyword = " ".join(final_tokens).strip()
+    max_conf = max([score for _, score in raw_texts], default=0.0)
+    has_trusted_clue = bool(detected_brands or detected_skus or detected_lines)
 
-    return raw_texts, final_keyword
+    if enable_gemini_fallback and (
+        len(keyword_tokens) < MIN_KEYWORDS
+        or (not has_trusted_clue and max_conf < MIN_CONFIDENCE)
+        or not final_keyword
+    ):
+        if progress_callback:
+            progress_callback(90, "🤖 Đang nhờ Gemini Flash phân tích hình ảnh bổ trợ...")
+        try:
+            gemini_keywords = extract_keywords_gemini(image_original)
+            if gemini_keywords:
+                used_gemini_fallback = True
+                # Merge: ưu tiên giữ kết quả OCR, bổ sung từ Gemini
+                for g_kw in gemini_keywords:
+                    g_clean = g_kw.strip()
+                    if not g_clean or is_noise_text(g_clean):
+                        continue
+
+                    # Kiểm tra xem g_kw có phải thương hiệu không
+                    b_match = match_brand(g_clean)
+                    if b_match and b_match not in seen_brands:
+                        detected_brands.insert(0, (b_match, 100.0))
+                        seen_brands.add(b_match)
+
+                    # Kiểm tra xem g_kw có phải SKU không
+                    skus = extract_sku_or_model(g_clean)
+                    for s in skus:
+                        if s not in seen_skus:
+                            detected_skus.append((s, 90.0))
+                            seen_skus.add(s)
+
+                    # Kiểm tra xem g_kw có phải dòng sản phẩm không
+                    l_match = match_product_line(g_clean)
+                    if l_match and l_match not in seen_lines and l_match not in seen_brands:
+                        detected_lines.append((l_match, 80.0))
+                        seen_lines.add(l_match)
+
+                    # Bổ sung vào bảng raw_texts để người dùng thấy nguồn gốc từ Gemini
+                    raw_texts.append((f"[Gemini] {g_clean}", 0.95))
+
+                # Xây dựng lại keyword_tokens với các thông tin bổ trợ từ Gemini
+                keyword_tokens.clear()
+                seen_tokens_lower.clear()
+
+                for b_name, _ in detected_brands:
+                    for w in b_name.split():
+                        add_token(w)
+
+                for s_name, _ in detected_skus:
+                    add_token(s_name)
+
+                for l_name, _ in detected_lines:
+                    for w in l_name.split():
+                        add_token(w)
+
+                for c_text, _ in detected_caps:
+                    for w in c_text.split():
+                        add_token(w)
+
+                for o_text, _ in detected_others:
+                    for w in o_text.split():
+                        add_token(w)
+
+                for g_kw in gemini_keywords:
+                    for w in g_kw.split():
+                        add_token(w)
+
+                final_keyword = assemble_final_keyword()
+        except Exception as e:
+            # Không để lỗi Gemini làm sập ứng dụng
+            st.warning(f"Gemini fallback thất bại: {e}")
+
+    return raw_texts, final_keyword, used_gemini_fallback
+
+
+def extract_keywords(image: Any, mode: str = "mobile") -> List[str]:
+    """
+    Hàm trích xuất từ khóa Hybrid tinh gọn:
+    1. Chạy PaddleOCR và lọc rule-based + RapidFuzz.
+    2. Nếu số từ khóa < 2 hoặc độ tin cậy < 0.75, tự động gọi Gemini Flash phân tích bổ trợ.
+    3. Hợp nhất kết quả và trả về danh sách từ khóa.
+
+    Args:
+        image: Ảnh đầu vào (PIL Image hoặc numpy ndarray BGR).
+        mode (str): Chế độ mô hình OCR ("mobile" hoặc "medium").
+
+    Returns:
+        List[str]: Danh sách từ khóa tìm kiếm.
+    """
+    if isinstance(image, np.ndarray):
+        img_bgr = image
+    else:
+        # Chuyển PIL Image sang OpenCV BGR
+        img_bgr = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+    from preprocessing import preprocess_image
+
+    img_enh = preprocess_image(img_bgr)
+
+    raw_texts, final_keyword, _ = extract_text_and_keywords(
+        image_original=img_bgr,
+        image_enhanced=img_enh,
+        model_type=mode,
+        enable_gemini_fallback=True,
+    )
+
+    return final_keyword.split() if final_keyword else []
+

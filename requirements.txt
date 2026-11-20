@@ -21,3 +21,7 @@ ddgs>=9.0.0
 # So khớp mờ chuỗi (Fuzzy matching) nhận diện thương hiệu
 rapidfuzz>=3.0.0
 
+# Mô hình thị giác AI Hybrid (Gemini Flash phân tích bổ trợ khi ảnh khó/mờ)
+google-generativeai>=0.8.0
+
+

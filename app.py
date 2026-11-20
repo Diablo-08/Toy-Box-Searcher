@@ -192,6 +192,8 @@ def init_session_state() -> None:
         st.session_state.search_region = "vn-vi"
     if "ocr_model_type" not in st.session_state:
         st.session_state.ocr_model_type = "mobile"
+    if "used_gemini_fallback" not in st.session_state:
+        st.session_state.used_gemini_fallback = False
 
 
 init_session_state()
@@ -217,8 +219,9 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(
         """
-        **💡 Tối ưu hóa hiệu năng CPU:**
+        **💡 Tối ưu hóa hiệu năng CPU & Hybrid AI:**
         - **Flash:** Tối ưu hóa tốc độ, thời gian quét chỉ ~0.6s - 1.2s.
+        - **Hybrid AI Fallback:** Tự động kích hoạt Gemini Flash khi ảnh khó/mờ để tối ưu kết quả và tiết kiệm quota.
         - **Đa luồng tìm kiếm:** Truy vấn song song khu vực và toàn cầu qua ThreadPoolExecutor.
         - **Lọc thông minh:** Tự động loại bỏ 100% Wikipedia, chỉ giữ các trang sản phẩm & mua sắm.
         """
@@ -314,7 +317,7 @@ if uploaded_file is not None:
                 0.85 if st.session_state.ocr_model_type == "mobile" else 0.95
             )
 
-            raw_texts, final_keyword = extract_text_and_keywords(
+            raw_texts, final_keyword, used_gemini = extract_text_and_keywords(
                 image_orig_bgr,
                 image_enh_bgr,
                 min_keyword_conf=active_conf_thresh,
@@ -330,6 +333,7 @@ if uploaded_file is not None:
             st.session_state.image_enhanced_bgr = image_enh_bgr
             st.session_state.raw_texts = raw_texts
             st.session_state.final_keyword = final_keyword
+            st.session_state.used_gemini_fallback = used_gemini
             # ĐỒNG BỘ TRỰC TIẾP VÀO KEY CỦA WIDGET để ô tìm kiếm tự động đổi sang từ khóa mới
             st.session_state.keyword_box = final_keyword
             st.session_state.ocr_time_seconds = elapsed_time
@@ -422,11 +426,23 @@ if st.session_state.image_original_bgr is not None:
             )
         else:
             time_str = f"{st.session_state.ocr_time_seconds:.2f}s"
-            mode_tag = "Flash ⚡" if st.session_state.ocr_model_type == "mobile" else "Standard 🎯"
+            if st.session_state.get("used_gemini_fallback", False):
+                mode_tag = "Hybrid 🤖 (OCR + Gemini Flash)"
+                badge_text = f"⚡ Thời gian xử lý: {time_str} ({mode_tag}) | Đã bổ trợ từ khóa AI"
+            else:
+                mode_tag = "Flash ⚡" if st.session_state.ocr_model_type == "mobile" else "Standard 🎯"
+                badge_text = f"⚡ Thời gian quét: {time_str} ({mode_tag}) | Trích xuất từ khóa đạt độ tin cậy > {conf_label}"
+
             st.markdown(
-                f'<div class="speed-badge">⚡ Thời gian quét: {time_str} ({mode_tag}) | Trích xuất từ khóa đạt độ tin cậy > {conf_label}</div>',
+                f'<div class="speed-badge">{badge_text}</div>',
                 unsafe_allow_html=True,
             )
+
+            # Cho user biết Gemini có được dùng không (theo chuẩn Bước 5)
+            if st.session_state.get("used_gemini_fallback", False):
+                st.caption("🤖 Gemini Flash đã hỗ trợ phân tích ảnh khó")
+            else:
+                st.caption("⚡ Phân tích nhanh bằng OCR")
 
         # Ô nhập từ khóa: Gắn trực tiếp với key='keyword_box' để tự động cập nhật khi đổi ảnh
         keyword_input = st.text_input(
