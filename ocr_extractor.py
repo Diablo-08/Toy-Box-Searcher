@@ -789,13 +789,23 @@ def extract_text_and_keywords(
         final_tokens: List[str] = []
         current_length = 0
         for token in keyword_tokens:
+            # Loại bỏ chữ toy/toys nếu nằm ở giữa danh sách
+            if token.lower() in {"toy", "toys"}:
+                continue
             if len(final_tokens) >= 8:
                 break
-            if current_length + len(token) + 1 > 80:
+            if current_length + len(token) + 1 > 70:
                 break
             final_tokens.append(token)
             current_length += len(token) + 1
-        return " ".join(final_tokens).strip()
+
+        base_res = " ".join(final_tokens).strip()
+        if not base_res:
+            return ""
+
+        # LUÔN THÊM TỪ KHÓA 'toys' (hoặc 'TOYS' nếu cụm từ viết hoa) Ở SAU CÙNG
+        toy_tag = "TOYS" if base_res.isupper() else "toys"
+        return f"{base_res} {toy_tag}".strip()
 
     # Trường hợp PaddleOCR không tìm thấy chữ nào trên ảnh:
     if not raw_texts:

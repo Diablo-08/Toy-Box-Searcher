@@ -163,21 +163,30 @@ def extract_smart_query(raw_keyword: str, max_words: int = 4, region: str = "vn-
             # Từ rác hoặc lỗi chính tả OCR
             scored_tokens.append((t, 1))
 
-    # Sắp xếp từ theo điểm số giảm dần
-    scored_tokens.sort(key=lambda x: x[1], reverse=True)
+    # Lọc bỏ từ rác OCR (điểm <= 1) và GIỮ NGUYÊN THỨ TỰ TỰ NHIÊN CỦA CỤM TỪ
+    valid_tokens = [item for item in scored_tokens if item[1] > 1]
+    if not valid_tokens:
+        valid_tokens = scored_tokens[:max_words]
+    elif len(valid_tokens) > max_words:
+        top_words_set = set(
+            t[0] for t in sorted(valid_tokens, key=lambda x: x[1], reverse=True)[:max_words]
+        )
+        valid_tokens = [t for t in valid_tokens if t[0] in top_words_set]
 
-    # Chọn top từ có điểm cao nhất (loại bỏ các từ toy/toys ở giữa để đưa ra cuối)
+    # Chọn từ hợp lệ (loại bỏ từ toy/toys ở giữa để gom ra cuối)
     selected_words = []
-    for item in scored_tokens:
+    for item in valid_tokens:
         word = item[0]
         if word.lower() not in {"toy", "toys"}:
             selected_words.append(word)
         if len(selected_words) >= max_words:
             break
 
-    # Ghép từ khóa và LUÔN THÊM CHỮ 'toys' Ở SAU CÙNG KHI TÌM KIẾM
+    # Ghép từ khóa và LUÔN THÊM CHỮ 'toys' (hoặc 'TOYS' nếu cụm từ viết hoa) Ở SAU CÙNG
     if selected_words:
-        result_query = " ".join(selected_words) + " toys"
+        base_str = " ".join(selected_words)
+        toy_suffix = "TOYS" if base_str.isupper() else "toys"
+        result_query = f"{base_str} {toy_suffix}"
     else:
         result_query = "toys"
 

@@ -479,6 +479,16 @@ if st.session_state.image_original_bgr is not None:
         if search_button:
             current_kw = st.session_state.keyword_box.strip()
             if current_kw:
+                # Đảm bảo từ khóa luôn kết thúc bằng TOYS hoặc toys
+                kw_tokens = current_kw.split()
+                if kw_tokens and kw_tokens[-1].lower() != "toys":
+                    if kw_tokens[-1].lower() == "toy":
+                        kw_tokens[-1] = kw_tokens[-1] + ("S" if kw_tokens[-1].isupper() else "s")
+                    else:
+                        kw_tokens.append("TOYS" if current_kw.isupper() else "toys")
+                    current_kw = " ".join(kw_tokens).strip()
+                    st.session_state.keyword_box = current_kw
+
                 try:
                     search_progress_placeholder.progress(
                         30, text=f"🌐 Đang kết nối máy chủ tra cứu '{current_kw}'..."
