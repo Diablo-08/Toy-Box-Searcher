@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 import streamlit as st
 # Sử dụng SDK mới google-genai (client‑based)
-from google import genai
+import google.genai as genai
 
 # Danh sách mô hình Flash ưu tiên
 MODEL_CANDIDATES = [
