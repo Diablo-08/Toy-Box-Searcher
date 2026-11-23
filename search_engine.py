@@ -50,7 +50,7 @@ except ImportError:
     from duckduckgo_search import DDGS
 
 # Bộ từ điển thuật ngữ đồ chơi phổ biến để chấm điểm ưu tiên từ khóa tìm kiếm
-TOY_VOCABULARY = {
+TOY_VOCABULARY = {\n    # Additional generic toy terms\n    "toy", "đồ", "chơi", "đồ chơi", "đồchơi",\n    # Existing terms ...
     # Thương hiệu
     "lego", "hot", "wheels", "barbie", "bandai", "gundam", "transformers",
     "hasbro", "mattel", "fisher", "price", "nerf", "playmobil", "funko",
@@ -111,6 +111,11 @@ def extract_smart_query(raw_keyword: str, max_words: int = 4) -> str:
 
     scored_tokens = []
     has_brand_or_sku = False
+    try:
+        from ocr_extractor import KNOWN_BRANDS
+        known_brands_set = {b.lower() for b in KNOWN_BRANDS}
+    except Exception:
+        known_brands_set = set()
 
     for t in tokens:
         tl = t.lower()
@@ -120,6 +125,11 @@ def extract_smart_query(raw_keyword: str, max_words: int = 4) -> str:
             scored_tokens.append((t, 25))
             has_brand_or_sku = True
         # 2. Từ khóa nằm trong từ điển đồ chơi chính xác
+        # 2. Direct brand match (higher priority)
+        elif tl in known_brands_set:
+            scored_tokens.append((t, 30))
+            has_brand_or_sku = True
+        # 3. Token in toy vocabulary
         elif tl in TOY_VOCABULARY:
             scored_tokens.append((t, 15))
             if tl in {"lego", "hot", "wheels", "barbie", "bandai", "gundam", "transformers"}:
