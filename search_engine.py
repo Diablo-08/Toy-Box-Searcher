@@ -2,8 +2,8 @@
 Module: search_engine.py
 Mục đích: Tìm kiếm thông tin sản phẩm đồ chơi trên Internet bằng thư viện ddgs (DuckDuckGo Search)
           tối ưu hóa theo khu vực (Việt Nam vn-vi / Toàn cầu wt-wt), tự động lọc từ rác OCR,
-          LOẠI BỎ 100% CÁC TRANG WIKIPEDIA/WIKIMEDIA để tập trung hoàn toàn vào các website sản phẩm,
-          sàn thương mại điện tử, bài đánh giá và cửa hàng đồ chơi thực tế.
+          LUÔN THÊM TỪ KHÓA ĐỒ CHƠI ("toy" hoặc "đồ chơi") vào truy vấn tìm kiếm để tập trung hoàn toàn
+          vào sản phẩm đồ chơi thực tế, LOẠI BỎ 100% CÁC TRANG NGOÀI LỀ (Wikipedia, Fandom wiki, từ điển).
 Tác giả: Senior Computer Vision Engineer & Python Developer
 Môi trường: Python 3.11.9, ddgs 9.x, Streamlit 1.x
 """
@@ -50,20 +50,23 @@ except ImportError:
     from duckduckgo_search import DDGS
 
 # Bộ từ điển thuật ngữ đồ chơi phổ biến để chấm điểm ưu tiên từ khóa tìm kiếm
-TOY_VOCABULARY = {\n    # Additional generic toy terms\n    "toy", "đồ", "chơi", "đồ chơi", "đồchơi",\n    # Existing terms ...
+TOY_VOCABULARY = {
+    # Thuật ngữ chung
+    "toy", "toys", "đồ", "chơi", "do", "choi", "đồchơi",
     # Thương hiệu
-    "lego", "hot", "wheels", "barbie", "bandai", "gundam", "transformers",
-    "hasbro", "mattel", "fisher", "price", "nerf", "playmobil", "funko",
-    "tomica", "disney", "marvel", "pokemon", "tamiya", "kyosho",
+    "lego", "hot", "wheels", "hotwheels", "hotwheel", "barbie", "bandai",
+    "gundam", "transformers", "hasbro", "mattel", "fisher", "price", "nerf",
+    "playmobil", "funko", "tomica", "disney", "marvel", "pokemon", "tamiya",
+    "kyosho", "matchbox", "majorette", "maisto", "bburago", "sluban",
     # Loại phương tiện & đồ chơi
     "car", "cars", "truck", "trucks", "train", "trains", "plane", "planes",
     "robot", "robots", "vehicle", "vehicles", "series", "diy", "construction",
     "builder", "builders", "building", "racing", "speed", "city", "police",
     "fire", "action", "figure", "figures", "blocks", "block", "model", "kit",
     "set", "diecast", "scale", "express", "passenger", "gunpla", "track",
-    "rc", "remote", "control", "drone", "puzzle", "game",
+    "rc", "remote", "control", "drone", "puzzle", "game", "monster",
     # Tiếng Việt
-    "xe", "do", "choi", "lap", "rap", "mo", "hinh", "dieu", "khien"
+    "xe", "lap", "rap", "mo", "hinh", "dieu", "khien", "bup", "be"
 }
 
 _LAST_SEARCH_ERROR: Optional[str] = None
@@ -75,66 +78,85 @@ def get_last_search_error() -> Optional[str]:
     return _LAST_SEARCH_ERROR
 
 
-def is_wikipedia_entry(url: str, title: str) -> bool:
+def is_irrelevant_entry(url: str, title: str, body: str = "") -> bool:
     """
-    Kiểm tra xem liên kết hoặc tiêu đề có thuộc Wikipedia / Wikimedia hay không
-    để LOẠI BỎ HOÀN TOÀN (theo yêu cầu người dùng không lấy trang bách khoa).
+    Kiểm tra và LOẠI BỎ TRIỆT ĐỂ các trang thông tin ngoài lề:
+    - Bách khoa toàn thư: Wikipedia, Wikimedia, Wiktionary, Wikibooks
+    - Wiki cộng đồng không bán hàng: Fandom, Wikia
+    - Từ điển ngữ pháp & giải nghĩa từ: Dictionary, Cambridge, Merriam-Webster
+    - Trang tin tức/bài viết không liên quan đến sản phẩm/đồ chơi
     """
     u = (url or "").lower()
     t = (title or "").lower()
-    return (
-        "wikipedia.org" in u
-        or "wikimedia.org" in u
-        or "wiktionary.org" in u
-        or "wikipedia" in t
-        or "bách khoa toàn thư" in t
-    )
+
+    # 1. Wikipedia & các dự án Wikimedia
+    if any(wiki in u for wiki in ["wikipedia.org", "wikimedia.org", "wiktionary.org", "wikibooks.org"]):
+        return True
+    if "wikipedia" in t or "bách khoa toàn thư" in t:
+        return True
+
+    # 2. Fandom & Wikia (thường là wiki cốt truyện phim/game dài dòng ngoài lề)
+    if any(fan in u for fan in ["fandom.com", "wikia.org", "wikia.com"]):
+        return True
+
+    # 3. Từ điển ngữ pháp & giải nghĩa từ
+    if any(dict_site in u for dict_site in ["dictionary.com", "merriam-webster.com", "cambridge.org", "collinsdictionary.com"]):
+        return True
+    if "nghĩa là gì" in t or "định nghĩa" in t:
+        return True
+
+    return False
 
 
-def extract_smart_query(raw_keyword: str, max_words: int = 4) -> str:
+def extract_smart_query(raw_keyword: str, max_words: int = 4, region: str = "vn-vi") -> str:
     """
     Trích xuất từ khóa thông minh có chọn lọc:
-    - Chấm điểm từng từ: Mã số/SKU (25đ), Từ vựng đồ chơi (15đ), Từ tiếng Anh có nghĩa (5đ), Từ rác/lỗi OCR (1đ).
-    - Loại bỏ hoàn toàn các từ rác do OCR sinh ra (như 'JOKNGDI', 'SCREWEIT').
-    - Lấy top N từ có điểm số cao nhất để tạo truy vấn có xác suất tìm thấy cao nhất.
+    - Ưu tiên thương hiệu (35đ), SKU (30đ), dòng sản phẩm (25đ), từ vựng đồ chơi (15đ).
+    - Loại bỏ hoàn toàn các từ rác do OCR sinh ra.
+    - ĐẶC BIỆT: LUÔN TỰ ĐỘNG THÊM TỪ KHÓA ĐỒ CHƠI ("toy" hoặc "đồ chơi") vào câu truy vấn
+      để công cụ tìm kiếm tập trung 100% vào sản phẩm đồ chơi, loại bỏ các kết quả xe thật/ngoài lề.
 
     Args:
-        raw_keyword (str): Chuỗi từ khóa quét được từ OCR.
+        raw_keyword (str): Chuỗi từ khóa quét được từ OCR / Gemini.
         max_words (int): Số lượng từ tối đa cần giữ lại.
+        region (str): Khu vực tìm kiếm ("vn-vi" hoặc "wt-wt").
 
     Returns:
-        str: Chuỗi truy vấn đã được tinh lọc.
+        str: Chuỗi truy vấn đã được tinh lọc và gắn nhãn đồ chơi.
     """
     tokens = re.findall(r"[A-Za-z0-9_-]+", raw_keyword)
     if not tokens:
-        return ""
+        return "đồ chơi" if region == "vn-vi" else "toy"
 
     scored_tokens = []
-    has_brand_or_sku = False
+    has_brand = False
+
+    # Lấy danh sách thương hiệu và dòng sản phẩm chuẩn để so khớp
     try:
-        from ocr_extractor import KNOWN_BRANDS
+        from ocr_extractor import KNOWN_BRANDS, KNOWN_PRODUCT_LINES
         known_brands_set = {b.lower() for b in KNOWN_BRANDS}
+        known_lines_set = {l.lower() for l in KNOWN_PRODUCT_LINES}
     except Exception:
         known_brands_set = set()
+        known_lines_set = set()
 
     for t in tokens:
         tl = t.lower()
 
-        # 1. Mã sản phẩm / Số hiệu hộp đồ chơi (ví dụ: 60337, HW123, RX-78)
-        if re.match(r"^\d{3,6}$", t) or re.match(r"^[A-Za-z]{1,4}\d{2,6}$", t):
-            scored_tokens.append((t, 25))
-            has_brand_or_sku = True
-        # 2. Từ khóa nằm trong từ điển đồ chơi chính xác
-        # 2. Direct brand match (higher priority)
-        elif tl in known_brands_set:
+        # 1. Tên thương hiệu trực tiếp (ưu tiên cao nhất)
+        if tl in known_brands_set or tl in {"hotwheels", "hotwheel", "lego", "bandai", "tomica", "mattel"}:
+            scored_tokens.append((t, 35))
+            has_brand = True
+        # 2. Mã sản phẩm / Số hiệu hộp đồ chơi (ví dụ: 60337, 42151, HW123, RX-78)
+        elif re.match(r"^\d{3,6}$", t) or re.match(r"^[A-Za-z]{1,4}\d{2,6}$", t):
             scored_tokens.append((t, 30))
-            has_brand_or_sku = True
-        # 3. Token in toy vocabulary
+        # 3. Dòng sản phẩm / Series nổi tiếng (Technic, Monster Trucks, etc.)
+        elif tl in known_lines_set:
+            scored_tokens.append((t, 25))
+        # 4. Từ khóa nằm trong từ điển đồ chơi
         elif tl in TOY_VOCABULARY:
             scored_tokens.append((t, 15))
-            if tl in {"lego", "hot", "wheels", "barbie", "bandai", "gundam", "transformers"}:
-                has_brand_or_sku = True
-        # 3. Từ tiếng Anh thông thường có nguyên âm hợp lệ
+        # 5. Từ tiếng Anh thông thường có nguyên âm hợp lệ
         elif len(t) >= 3 and re.search(r"[aeiouyAEIOUY]", t):
             scored_tokens.append((t, 5))
         else:
@@ -146,17 +168,19 @@ def extract_smart_query(raw_keyword: str, max_words: int = 4) -> str:
 
     # Chọn top từ có điểm cao nhất
     selected_words = [item[0] for item in scored_tokens[:max_words]]
-    result_query = " ".join(selected_words)
+    result_query = " ".join(selected_words).strip()
 
-    # Chỉ bổ sung 'toy' nếu chưa có thương hiệu/mã SKU và chưa có từ chỉ đồ chơi
+    # --- ĐẢM BẢO LUÔN CÓ TỪ KHÓA "TOY" HOẶC "ĐỒ CHƠI" ---
     lower_res = result_query.lower()
-    if (
-        not has_brand_or_sku
-        and "toy" not in lower_res
-        and "xe" not in lower_res
-        and "choi" not in lower_res
-    ):
-        result_query = f"{result_query} toy".strip()
+    has_toy_keyword = any(k in lower_res for k in ["toy", "toys", "đồ chơi", "do choi"])
+
+    if not has_toy_keyword:
+        if region == "vn-vi":
+            # Tại Việt Nam, thêm "đồ chơi" giúp tìm kiếm đúng sàn Shopee, Tiki, MyKingdom
+            result_query = f"{result_query} đồ chơi".strip()
+        else:
+            # Toàn cầu, thêm "toy"
+            result_query = f"{result_query} toy".strip()
 
     return result_query
 
@@ -164,14 +188,13 @@ def extract_smart_query(raw_keyword: str, max_words: int = 4) -> str:
 def _execute_ddgs_query(query: str, region: str, max_results: int) -> List[Dict[str, str]]:
     """
     Thực thi truy vấn trên DDGS và trả về danh sách kết quả sản phẩm thương mại.
-    BẮT BUỘC: LỌC BỎ 100% CÁC TRANG WIKIPEDIA / WIKIMEDIA.
+    BẮT BUỘC: LỌC BỎ 100% CÁC TRANG WIKIPEDIA, FANDOM, TỪ ĐIỂN VÀ THÔNG TIN NGOÀI LỀ.
     """
     results: List[Dict[str, str]] = []
-    # Lấy dư thêm kết quả để sau khi lọc Wikipedia vẫn đủ số lượng cần thiết
-    fetch_limit = max_results + 5
+    fetch_limit = max_results + 6
 
     try:
-        with DDGS(timeout=5) as ddgs:
+        with DDGS(timeout=6) as ddgs:
             raw_response = ddgs.text(query, region=region, max_results=fetch_limit)
             if raw_response:
                 for item in raw_response:
@@ -181,8 +204,8 @@ def _execute_ddgs_query(query: str, region: str, max_results: int) -> List[Dict[
                     href = item.get("href") or item.get("url") or item.get("link") or ""
                     body = item.get("body") or item.get("snippet") or item.get("description") or ""
 
-                    # BỎ QUA HOÀN TOÀN NẾU LÀ TRANG WIKIPEDIA
-                    if is_wikipedia_entry(href, title):
+                    # BỎ QUA HOÀN TOÀN CÁC TRANG THÔNG TIN NGOÀI LỀ
+                    if is_irrelevant_entry(href, title, body):
                         continue
 
                     if href and title:
@@ -204,16 +227,14 @@ def search_toy_info(
     keyword: str, max_results: int = 5, region: str = "vn-vi"
 ) -> List[Dict[str, str]]:
     """
-    Tra cứu thông tin sản phẩm đồ chơi thương mại theo khu vực (KHÔNG LẤY WIKIPEDIA),
-    kết hợp đa luồng (ThreadPoolExecutor) để truy vấn đồng thời khu vực chỉ định và toàn cầu,
-    giúp giảm độ trễ phản hồi tối đa:
-    1. Tầng 1: Tinh lọc từ khóa thông minh (Smart Query), truy vấn song song (Region + Global).
+    Tra cứu thông tin sản phẩm đồ chơi thương mại theo khu vực (KHÔNG LẤY WIKIPEDIA/TRANG NGOÀI LỀ),
+    kết hợp đa luồng (ThreadPoolExecutor) để truy vấn đồng thời khu vực chỉ định và toàn cầu:
+    1. Tầng 1: Tinh lọc từ khóa thông minh (Smart Query), tự động gắn thêm 'toy'/'đồ chơi'.
     2. Tầng 2: Nới lỏng từ khóa (Relaxed Query) nếu Tầng 1 chưa có kết quả.
-    3. Tầng 3: Truy vấn với từ khóa gốc đã làm sạch.
-    4. BẢO ĐẢM: Không bao giờ trả về bất kỳ liên kết Wikipedia hay bách khoa toàn thư nào.
+    3. Tầng 3: Truy vấn với từ khóa gốc kết hợp nhãn đồ chơi.
 
     Args:
-        keyword (str): Từ khóa thô từ OCR.
+        keyword (str): Từ khóa quét được từ OCR / Gemini.
         max_results (int): Số lượng kết quả tối đa (mặc định 5).
         region (str): Mã vùng tìm kiếm ('vn-vi' cho Việt Nam, 'wt-wt' cho Toàn cầu).
 
@@ -226,11 +247,10 @@ def search_toy_info(
     if not keyword.strip():
         return []
 
-    # 1. Trích xuất từ khóa trọng tâm (ưu tiên thương hiệu, mã SKU và từ vựng đồ chơi)
-    smart_query = extract_smart_query(keyword, max_words=4)
+    # 1. Tầng 1: Tinh lọc từ khóa trọng tâm + Luôn thêm từ khóa đồ chơi
+    smart_query = extract_smart_query(keyword, max_words=4, region=region)
     if smart_query:
         if region != "wt-wt":
-            # ĐA LUỒNG: Chạy song song truy vấn khu vực (vn-vi) và toàn cầu (wt-wt)
             with ThreadPoolExecutor(max_workers=2) as executor:
                 future_region = executor.submit(
                     _execute_ddgs_query, smart_query, region, max_results
@@ -253,8 +273,8 @@ def search_toy_info(
                 _LAST_SEARCH_ERROR = None
                 return res_global
 
-    # 2. Tự động nới lỏng truy vấn với 2 từ cốt lõi nhất nếu Tầng 1 chưa tìm thấy
-    relaxed_query = extract_smart_query(keyword, max_words=2)
+    # 2. Tầng 2: Tự động nới lỏng truy vấn với 2 từ cốt lõi nhất nếu Tầng 1 chưa tìm thấy
+    relaxed_query = extract_smart_query(keyword, max_words=2, region=region)
     if relaxed_query and relaxed_query != smart_query:
         if region != "wt-wt":
             with ThreadPoolExecutor(max_workers=2) as executor:
@@ -279,8 +299,9 @@ def search_toy_info(
                 _LAST_SEARCH_ERROR = None
                 return res_global
 
-    # 3. Thử tìm kiếm trực tiếp bằng chính từ khóa gốc (loại trừ từ rác đơn giản)
-    clean_original = " ".join([w for w in keyword.split() if len(w) >= 2])
+    # 3. Tầng 3: Thử tìm kiếm trực tiếp bằng từ khóa gốc kết hợp 'toy'
+    toy_suffix = " đồ chơi" if region == "vn-vi" else " toy"
+    clean_original = " ".join([w for w in keyword.split() if len(w) >= 2]) + toy_suffix
     if clean_original and clean_original != smart_query:
         results = _execute_ddgs_query(clean_original, region="wt-wt", max_results=max_results)
         if results:

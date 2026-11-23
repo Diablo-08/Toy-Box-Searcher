@@ -490,6 +490,7 @@ def match_brand(text: str, threshold: float = 85.0) -> Optional[str]:
     """
     So khớp mờ (Fuzzy Matching) để nhận diện thương hiệu đồ chơi nổi tiếng,
     chịu được sai sót 1-2 ký tự do OCR (ví dụ: 'LECO' -> 'LEGO', 'HOTWHEELS' -> 'Hot Wheels').
+    Đặc biệt tối ưu nhận diện logo dạng ngọn lửa uốn lượn của Hot Wheels và các hãng xe mô hình.
 
     Args:
         text (str): Chuỗi cần kiểm tra.
@@ -500,6 +501,21 @@ def match_brand(text: str, threshold: float = 85.0) -> Optional[str]:
     """
     text_clean = text.strip()
     text_lower = text_clean.lower()
+    text_compact = re.sub(r"[\s\-_.:/]", "", text_lower)
+
+    # 0. Nhận diện đặc biệt cho Hot Wheels (font chữ uốn lượn dạng lửa hay bị OCR dính hoặc méo chữ)
+    if (
+        "hotwheel" in text_compact
+        or "hotweel" in text_compact
+        or "hotwhel" in text_compact
+        or re.search(r"\bhot\s*wheels?\b", text_lower)
+        or fuzz.ratio(text_compact, "hotwheels") >= 80.0
+    ):
+        return "Hot Wheels"
+
+    # Nhận diện Mattel (công ty mẹ của Hot Wheels, Matchbox, Barbie)
+    if "mattel" in text_compact or fuzz.ratio(text_compact, "mattel") >= 85.0:
+        return "Mattel"
 
     for brand in KNOWN_BRANDS:
         brand_lower = brand.lower()
@@ -866,9 +882,10 @@ def extract_text_and_keywords(
 
     # --- HYBRID LOGIC FALLBACK (GEMINI FLASH) ---
     # Điều kiện kích hoạt:
-    # - Ít hơn 2 từ khóa hợp lệ (< MIN_KEYWORDS)
-    # - HOẶC độ tin cậy của các chữ đọc được < 0.75 (< MIN_CONFIDENCE)
-    # - HOẶC không trích xuất được final_keyword
+    # 1. OCR KHÔNG tìm thấy bất kỳ thương hiệu đồ chơi nào (như logo ngọn lửa Hot Wheels, Bandai cách điệu)
+    # 2. HOẶC ít hơn 2 từ khóa hợp lệ (< MIN_KEYWORDS)
+    # 3. HOẶC không có dấu hiệu tin cậy nào và độ tin cậy tối đa < 0.75 (< MIN_CONFIDENCE)
+    # 4. HOẶC không ghép được final_keyword
     MIN_KEYWORDS = 2
     MIN_CONFIDENCE = 0.75
     used_gemini_fallback = False
@@ -877,7 +894,8 @@ def extract_text_and_keywords(
     has_trusted_clue = bool(detected_brands or detected_skus or detected_lines)
 
     if enable_gemini_fallback and (
-        len(keyword_tokens) < MIN_KEYWORDS
+        not detected_brands
+        or len(keyword_tokens) < MIN_KEYWORDS
         or (not has_trusted_clue and max_conf < MIN_CONFIDENCE)
         or not final_keyword
     ):

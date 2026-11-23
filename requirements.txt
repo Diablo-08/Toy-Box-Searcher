@@ -22,6 +22,7 @@ ddgs>=9.0.0
 rapidfuzz>=3.0.0
 
 # Mô hình thị giác AI Hybrid (Gemini Flash phân tích bổ trợ khi ảnh khó/mờ)
+google-genai>=0.1.0
 google-generativeai>=0.8.0
 
 
