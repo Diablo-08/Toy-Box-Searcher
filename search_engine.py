@@ -166,23 +166,22 @@ def extract_smart_query(raw_keyword: str, max_words: int = 4, region: str = "vn-
     # Sắp xếp từ theo điểm số giảm dần
     scored_tokens.sort(key=lambda x: x[1], reverse=True)
 
-    # Chọn top từ có điểm cao nhất
-    selected_words = [item[0] for item in scored_tokens[:max_words]]
-    result_query = " ".join(selected_words).strip()
+    # Chọn top từ có điểm cao nhất (loại bỏ các từ toy/toys ở giữa để đưa ra cuối)
+    selected_words = []
+    for item in scored_tokens:
+        word = item[0]
+        if word.lower() not in {"toy", "toys"}:
+            selected_words.append(word)
+        if len(selected_words) >= max_words:
+            break
 
-    # --- ĐẢM BẢO LUÔN CÓ TỪ KHÓA "TOY" HOẶC "ĐỒ CHƠI" ---
-    lower_res = result_query.lower()
-    has_toy_keyword = any(k in lower_res for k in ["toy", "toys", "đồ chơi", "do choi"])
+    # Ghép từ khóa và LUÔN THÊM CHỮ 'toys' Ở SAU CÙNG KHI TÌM KIẾM
+    if selected_words:
+        result_query = " ".join(selected_words) + " toys"
+    else:
+        result_query = "toys"
 
-    if not has_toy_keyword:
-        if region == "vn-vi":
-            # Tại Việt Nam, thêm "đồ chơi" giúp tìm kiếm đúng sàn Shopee, Tiki, MyKingdom
-            result_query = f"{result_query} đồ chơi".strip()
-        else:
-            # Toàn cầu, thêm "toy"
-            result_query = f"{result_query} toy".strip()
-
-    return result_query
+    return result_query.strip()
 
 
 def _execute_ddgs_query(query: str, region: str, max_results: int) -> List[Dict[str, str]]:
@@ -299,9 +298,14 @@ def search_toy_info(
                 _LAST_SEARCH_ERROR = None
                 return res_global
 
-    # 3. Tầng 3: Thử tìm kiếm trực tiếp bằng từ khóa gốc kết hợp 'toy'
-    toy_suffix = " đồ chơi" if region == "vn-vi" else " toy"
-    clean_original = " ".join([w for w in keyword.split() if len(w) >= 2]) + toy_suffix
+    # 3. Tầng 3: Thử tìm kiếm trực tiếp bằng từ khóa gốc kết hợp 'toys' ở sau cùng
+    clean_words = [w for w in keyword.split() if len(w) >= 2]
+    if clean_words and clean_words[-1].lower() != "toys":
+        if clean_words[-1].lower() == "toy":
+            clean_words[-1] = clean_words[-1] + "s"
+        else:
+            clean_words.append("toys")
+    clean_original = " ".join(clean_words).strip()
     if clean_original and clean_original != smart_query:
         results = _execute_ddgs_query(clean_original, region="wt-wt", max_results=max_results)
         if results:

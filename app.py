@@ -533,44 +533,6 @@ if st.session_state.image_original_bgr is not None:
             unsafe_allow_html=True,
         )
 
-        current_active_kw = st.session_state.keyword_box.strip()
-
-        # Thanh công cụ tra cứu trực tiếp 1-chạm
-        if current_active_kw:
-            encoded_q = urllib.parse.quote_plus(current_active_kw)
-            if chosen_region == "vn-vi":
-                shopee_url = f"https://shopee.vn/search?keyword={encoded_q}"
-                mykingdom_url = f"https://www.mykingdom.com.vn/search?q={encoded_q}"
-                google_url = f"https://www.google.com/search?q={encoded_q}&cr=countryVN"
-                youtube_url = f"https://www.youtube.com/results?search_query={encoded_q}+do+choi+review"
-                st.markdown(
-                    f"""
-                    <div class="direct-links-box">
-                        <b style="color: black;">🚀 Tra cứu trực tiếp tại Việt Nam:</b>&nbsp;&nbsp;
-                        <a href="{shopee_url}" target="_blank" rel="noopener noreferrer" style="margin-right: 12px; font-weight: 600; text-decoration: none; color: #EA580C;">🛒 Mua trên Shopee</a>
-                        <a href="{mykingdom_url}" target="_blank" rel="noopener noreferrer" style="margin-right: 12px; font-weight: 600; text-decoration: none; color: #E11D48;">🧸 Xem trên MyKingdom</a>
-                        <a href="{google_url}" target="_blank" rel="noopener noreferrer" style="margin-right: 12px; font-weight: 600; text-decoration: none; color: #2563EB;">🔍 Google VN</a>
-                        <a href="{youtube_url}" target="_blank" rel="noopener noreferrer" style="font-weight: 600; text-decoration: none; color: #DC2626;">▶️ Video Mở Hộp</a>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            else:
-                google_url = f"https://www.google.com/search?q={encoded_q}"
-                amazon_url = f"https://www.amazon.com/s?k={encoded_q}"
-                youtube_url = f"https://www.youtube.com/results?search_query={encoded_q}+toy+review"
-                st.markdown(
-                    f"""
-                    <div class="direct-links-box">
-                        <b style="color: black;">🚀 Tra cứu trực tiếp toàn cầu:</b>&nbsp;&nbsp;
-                        <a href="{google_url}" target="_blank" rel="noopener noreferrer" style="margin-right: 12px; font-weight: 600; text-decoration: none; color: #2563EB;">🔍 Google Global</a>
-                        <a href="{amazon_url}" target="_blank" rel="noopener noreferrer" style="margin-right: 12px; font-weight: 600; text-decoration: none; color: #EA580C;">📦 Amazon</a>
-                        <a href="{youtube_url}" target="_blank" rel="noopener noreferrer" style="font-weight: 600; text-decoration: none; color: #DC2626;">▶️ YouTube Review</a>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
         # Hiển thị thông báo cảnh báo nếu có lỗi kết nối mạng
         if st.session_state.search_error:
             st.warning(f"⚠️ {st.session_state.search_error}")
@@ -598,8 +560,7 @@ if st.session_state.image_original_bgr is not None:
             if current_active_kw:
                 st.info(
                     "💡 Chưa tìm thấy bài viết cụ thể qua bộ quét tự động. "
-                    "Bạn hãy bấm vào các nút liên kết nhanh bên trên (Shopee / MyKingdom / Google) "
-                    "để xem ngay giá bán và thông tin chi tiết!"
+                    "Bạn có thể thử chỉnh sửa lại từ khóa ở ô trên và nhấn 'Tìm kiếm lại'!"
                 )
             else:
                 st.info("Hãy nhập từ khóa và nhấn 'Tìm kiếm lại' để tra cứu.")
